@@ -32,12 +32,11 @@ func fetchUrl(url string, chFailedUrls chan string, chIsFinished chan bool) {
 func getHtmlFromPage(url string) {
 	resp, _ := http.Get(url)
 	bytes, _ := ioutil.ReadAll(resp.Body)
-
-	fmt.Println("HTML:\n\n", string(bytes), bytes)
-	resp.Body.close()
+	fmt.Println("HTML:\n\n", string(bytes))
+	resp.Body.Close()
 }
 func main() {
-
+	getHtmlFromPage("https://natgeo.nikkeibp.co.jp")
 	urlsList := [10]string{
 		"https://natgeo.nikkeibp.co.jp",
 		"http://example2.com",
