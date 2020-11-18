@@ -2,78 +2,82 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
+	"golang.org/x/net/html"
+	//"io"
+	"log"
 	"net/http"
+	"strings"
 )
 
-//chGoodUrls chan string,
-func fetchUrl(url string, chFailedUrls chan string, chIsFinished chan bool) {
-	client := http.Client{}
-	req, _ := http.NewRequest("GET", url, nil)
-	req.Header.Add("If-None-Match", `W/"wyzzy"`)
-	resp, err := client.Do(req)
-	//sends a request and gets a response
-	// executed when fetch url outer scope is finished
-	defer func() {
-		chIsFinished <- true
-	}()
-
-	if err != nil || resp.StatusCode != 200 {
-		chFailedUrls <- url
-		return
+func getHtmlFromPage(url string) []string {
+	resp, err := http.Get(url)
+	if err != nil {
+		log.Fatal(err)
 	}
-
-	// 	fmt.Println("here")
-	// 	chGoodUrls <- url
-
-	//}
-}
-
-func getHtmlFromPage(url string) {
-	resp, _ := http.Get(url)
-	bytes, _ := ioutil.ReadAll(resp.Body)
-	fmt.Println("HTML:\n\n", string(bytes))
-	resp.Body.Close()
-}
-func main() {
-	getHtmlFromPage("https://natgeo.nikkeibp.co.jp")
-	urlsList := [10]string{
-		"https://natgeo.nikkeibp.co.jp",
-		"http://example2.com",
-		"http://example3.com",
-		"http://example4.com",
-		// "http://example5.com",
-		// "http://example10.com",
-		// "http://example20.com",
-		// "http://example30.com",
-		"http://example40.com",
-		// "http://example50.com",
+	defer resp.Body.Close()
+	textTags := []string{
+		"a",
+		"p", "span", "em", "string", "blockquote", "q", "cite",
+		"h1", "h2", "h3", "h4", "h5", "h6", "title",
 	}
+	tag := ""
+	enter := false
+	res := make([]string, 0)
 
-	chFailedUrls := make(chan string)
-	//chGoodUrls := make(chan string)
-	chIsFinished := make(chan bool)
-	// do each fetch in the list concurrently
-	for _, url := range urlsList {
-		fmt.Println(url)
-		go fetchUrl(url, chFailedUrls, chIsFinished)
-	}
+	z := html.NewTokenizer(resp.Body)
 
-	failedUrls := make([]string, 0)
-	//goodUrls := make([]string, 0)
+	for {
+		tt := z.Next()
+		t := z.Token()
+		switch {
+		case tt == html.ErrorToken:
+			// End of the document, we're done
+			return res
+		case tt == html.StartTagToken, tt ==html.SelfClosingTagToken:
+			enter = false
+			tag = t.Data
+			for _, ttt := range textTags {
+				if tag == ttt {
+					enter = true
+					break
+				}
+			}
+		case tt == html.TextToken:
+			if enter {
+				data := strings.TrimSpace(t.Data)
+				if len(data) > 0 {
+					res = append(res, data)
+				}
 
-	for i := 0; i < len(urlsList); {
-		select {
-		case url := <-chFailedUrls:
-			failedUrls = append(failedUrls, url)
-		//case url := <-chGoodUrls:
-		//	goodUrls = append(goodUrls, url)
-		case <-chIsFinished:
-			i++
+			}
+
 		}
-
 	}
-	fmt.Println("could not fetch these urls: ", failedUrls)
-	fmt.Println("could fetch these urls: ", failedUrls)
-
 }
+
+
+func wordCount(s []string) map[string]int {
+    words := s
+    wordCount := make(map[string]int)
+    for i := range words {
+        wordCount[words[i]]++
+    }
+        
+    return wordCount
+}
+
+func main() {
+
+   res := getHtmlFromPage("https://www.nikkei.com/")
+   jchar := strings.Split(res[0],"") 
+   jchar = append(jchar,"日" )
+
+   count := wordCount(jchar)
+   fmt.Println(count)
+
+   //fmt.Println("result html", )
+	 for i,v := range strings.Split(res[0],""){
+ 	fmt.Printf("element info: %d %d\n", i, v)
+	  }
+}
+
