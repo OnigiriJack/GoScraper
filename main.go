@@ -9,13 +9,14 @@ import (
 	"net/http"
 	"os"
 	"sort"
+	"strconv"
 	"strings"
 	"unicode"
 )
 
 // help from https://gist.github.com/dhoss/7532777
 // https://medium.com/@kenanbek/golang-html-tokenizer-extract-text-from-a-web-page-kanan-rahimov-8c75704bf8a3
-func getHtmlFromPage(url string, c chan []string) { //[]string {
+func getHtmlFromPage(url string, c chan []string) {
 	resp, err := http.Get(url)
 	if err != nil {
 		log.Fatal(err)
@@ -38,6 +39,7 @@ func getHtmlFromPage(url string, c chan []string) { //[]string {
 		switch {
 		case tt == html.ErrorToken:
 			// End of the document, we're done
+			res = append(res, url)
 			c <- res
 			return
 			//return res
@@ -107,22 +109,16 @@ func main() {
 	// we can retrieve the user and verify if the credentials
 	// Twitter client
 
-
-// Send a Tweet
-tweet, resp, err := client.Statuses.Update("今日世界", nil)
-if err != nil {
-	log.Println("error making tweet", err)
-}
-log.Printf("%+v\n", resp)
-log.Printf("%+v\n", tweet)
-
-
+	// Send a Tweet
+	tweet, resp, err := client.Statuses.Update("今日世界 test", nil)
+	if err != nil {
+		log.Println("error making tweet", err)
+	}
+	log.Printf("%+v\n", resp)
+	log.Printf("%+v\n", tweet)
 
 	////////////TWITTER ABOVE/////////////
 
-
-
-	//res := getHtmlFromPage("https://natgeo.nikkeibp.co.jp/?n_cid=nbpnng_ds99999")
 	links := []string{
 		"https://natgeo.nikkeibp.co.jp/?n_cid=nbpnng_ds99999",
 		"https://mainichi.jp",
@@ -138,11 +134,25 @@ log.Printf("%+v\n", tweet)
 	}
 
 	for Kanji := range kanjiChannel {
-		//fmt.Println(Kanji)
+		urlFromSite := Kanji[len(Kanji)-1]
 		Kanji := countKanji(Kanji)
 		sort.Sort(byFreq(Kanji))
 		// get Top 10
 		fmt.Println(Kanji[:10])
+
+		ten := Kanji[:10]
+		var s []string
+		for _, v := range ten {
+			s = append(s, v.Kanji+": "+strconv.Itoa(v.count)+" ")
+		}
+		kanjis := strings.Join(s, ",")
+		tweet, resp, err := client.Statuses.Update("今日世界 top TEN KANJI from "+urlFromSite+" "+kanjis+"", nil)
+		if err != nil {
+			log.Println("error making tweet", err)
+		}
+		log.Printf("%+v\n", resp)
+		log.Printf("%+v\n", tweet)
+
 	}
 	close(kanjiChannel)
 	fmt.Println("Fetched all sites")
