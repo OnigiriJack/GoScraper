@@ -12,7 +12,7 @@ import (
 
 // help from https://gist.github.com/dhoss/7532777
 // https://medium.com/@kenanbek/golang-html-tokenizer-extract-text-from-a-web-page-kanan-rahimov-8c75704bf8a3
-func getHtmlFromPage(url string) []string {
+func getHtmlFromPage(url string, c chan []string){ //[]string {
 	resp, err := http.Get(url)
 	if err != nil {
 		log.Fatal(err)
@@ -35,7 +35,9 @@ func getHtmlFromPage(url string) []string {
 		switch {
 		case tt == html.ErrorToken:
 			// End of the document, we're done
-			return res
+			c <- res
+			return
+			//return res
 		case tt == html.StartTagToken, tt == html.SelfClosingTagToken:
 			enter = false
 			tag = t.Data
@@ -64,7 +66,7 @@ type kanjiCount struct {
 	count int
 }
 
-func wordCount(s []string) []kanjiCount {
+func countKanji(s []string) []kanjiCount {
 	words := s
 	wordCount := make(map[string]int)
 	kanjis := make([]kanjiCount, 0)
@@ -94,11 +96,40 @@ func (a byFreq) Less(i, j int) bool {
 
 
 func main() {
+	links := []string{
+		"https://natgeo.nikkeibp.co.jp/?n_cid=nbpnng_ds99999",	
+		"https://mainichi.jp",
+		"https://www.nikkei.com",
+		"https://www.asahi.com",
+		"https://www.yomiuri.co.jp",
+		"https://www.kobe-np.co.jp",
+		"https://www.kyoto-np.co.jp",
 
-	res := getHtmlFromPage("https://www.nikkei.com/")
+	}
 
-	countedKanji := wordCount(res)
-	sort.Sort(byFreq(countedKanji))
-	fmt.Println(countedKanji)
+	c := make(chan []string )
+
+	for _, link := range links {
+		fmt.Println("firing go routine for ", link)
+		go getHtmlFromPage(link, c)
+	}
+
+	for Kanji := range c {
+		//fmt.Println(Kanji)
+		Kanji := countKanji(Kanji)
+		sort.Sort(byFreq(Kanji))
+	// get Top 10
+	fmt.Println(Kanji[:10])
+	}
+	fmt.Println("Exiting")
+
+
+
+	//res := getHtmlFromPage("https://natgeo.nikkeibp.co.jp/?n_cid=nbpnng_ds99999")
+
+	// Kanji := countKanji(res)
+	// sort.Sort(byFreq(Kanji))
+	// // get Top 10
+	// fmt.Println(Kanji[:10])
 
 }
