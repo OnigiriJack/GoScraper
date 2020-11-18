@@ -8,7 +8,8 @@ import (
 	"net/http"
 	"strings"
 )
-
+// help from https://gist.github.com/dhoss/7532777
+ // https://medium.com/@kenanbek/golang-html-tokenizer-extract-text-from-a-web-page-kanan-rahimov-8c75704bf8a3
 func getHtmlFromPage(url string) []string {
 	resp, err := http.Get(url)
 	if err != nil {
@@ -45,10 +46,14 @@ func getHtmlFromPage(url string) []string {
 		case tt == html.TextToken:
 			if enter {
 				data := strings.TrimSpace(t.Data)
+				//fmt.Println("I am a jchar  ",jchar )
 				if len(data) > 0 {
-					res = append(res, data)
+					jchar := strings.Split(data,"") 
+					for _, kanji := range jchar {
+						//fmt.Println("I am a jchar  ",kanji )
+						res = append(res, kanji)
+					}
 				}
-
 			}
 
 		}
@@ -69,15 +74,13 @@ func wordCount(s []string) map[string]int {
 func main() {
 
    res := getHtmlFromPage("https://www.nikkei.com/")
-   jchar := strings.Split(res[0],"") 
-   jchar = append(jchar,"日" )
 
-   count := wordCount(jchar)
+   count := wordCount(res)
    fmt.Println(count)
 
-   //fmt.Println("result html", )
-	 for i,v := range strings.Split(res[0],""){
- 	fmt.Printf("element info: %d %d\n", i, v)
-	  }
+    // fmt.Println("result html",res )
+	//  for i,v := range strings.Split(res[0],""){
+ 	// fmt.Printf("element info: %d %d\n", i, v)
+	//   }
 }
 
