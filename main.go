@@ -2,9 +2,12 @@ package main
 
 import (
 	"fmt"
+	"github.com/dghubble/go-twitter/twitter"
+	"github.com/dghubble/oauth1"
 	"golang.org/x/net/html"
 	"log"
 	"net/http"
+	"os"
 	"sort"
 	"strings"
 	"unicode"
@@ -12,7 +15,7 @@ import (
 
 // help from https://gist.github.com/dhoss/7532777
 // https://medium.com/@kenanbek/golang-html-tokenizer-extract-text-from-a-web-page-kanan-rahimov-8c75704bf8a3
-func getHtmlFromPage(url string, c chan []string){ //[]string {
+func getHtmlFromPage(url string, c chan []string) { //[]string {
 	resp, err := http.Get(url)
 	if err != nil {
 		log.Fatal(err)
@@ -61,6 +64,7 @@ func getHtmlFromPage(url string, c chan []string){ //[]string {
 		}
 	}
 }
+
 type kanjiCount struct {
 	Kanji string
 	count int
@@ -75,7 +79,7 @@ func countKanji(s []string) []kanjiCount {
 		wordCount[words[i]]++
 	}
 	for k, v := range wordCount {
-		kanjis = append(kanjis, kanjiCount{k,v} )
+		kanjis = append(kanjis, kanjiCount{k, v})
 	}
 	return kanjis
 }
@@ -86,47 +90,62 @@ func (a byFreq) Len() int {
 	return len(a)
 }
 func (a byFreq) Swap(i, j int) {
-	a[i], a[j] =a[j], a[i]
+	a[i], a[j] = a[j], a[i]
 }
-func (a byFreq) Less(i, j int) bool { 
+func (a byFreq) Less(i, j int) bool {
 	return a[i].count > a[j].count
 }
 
-
-
-
 func main() {
-	links := []string{
-		"https://natgeo.nikkeibp.co.jp/?n_cid=nbpnng_ds99999",	
-		"https://mainichi.jp",
-		"https://www.nikkei.com",
-		"https://www.asahi.com",
-		"https://www.yomiuri.co.jp",
-		"https://www.kobe-np.co.jp",
-		"https://www.kyoto-np.co.jp",
+	config := oauth1.NewConfig(os.Getenv("TWITTER_CONSUMER_KEY"), os.Getenv("TWITTER_CONSUMER_SECRET"))
+	token := oauth1.NewToken(os.Getenv("TWITTER_ACCESS_TOKEN"), os.Getenv("TWITTER_ACCESS_SECRET"))
+	httpClient := config.Client(oauth1.NoContext, token)
 
-	}
+	// Twitter client
+	client := twitter.NewClient(httpClient)
 
-	c := make(chan []string )
+	// we can retrieve the user and verify if the credentials
+	// Twitter client
 
-	for _, link := range links {
-		fmt.Println("firing go routine for ", link)
-		go getHtmlFromPage(link, c)
-	}
 
-	for Kanji := range c {
-		//fmt.Println(Kanji)
-		Kanji := countKanji(Kanji)
-		sort.Sort(byFreq(Kanji))
-	// get Top 10
-	fmt.Println(Kanji[:10])
-	}
-	fmt.Println("Exiting")
+// Send a Tweet
+tweet, resp, err := client.Statuses.Update("今日世界", nil)
+if err != nil {
+	log.Println("error making tweet", err)
+}
+log.Printf("%+v\n", resp)
+log.Printf("%+v\n", tweet)
+
+
+
+	////////////TWITTER ABOVE/////////////
 
 
 
 	//res := getHtmlFromPage("https://natgeo.nikkeibp.co.jp/?n_cid=nbpnng_ds99999")
+	links := []string{
+		"https://natgeo.nikkeibp.co.jp/?n_cid=nbpnng_ds99999",
+		"https://mainichi.jp",
+		"https://www.nikkei.com",
+		"https://www.asahi.com",
+	}
 
+	kanjiChannel := make(chan []string)
+
+	for _, link := range links {
+		fmt.Println("firing go routine for ", link)
+		go getHtmlFromPage(link, kanjiChannel)
+	}
+
+	for Kanji := range kanjiChannel {
+		//fmt.Println(Kanji)
+		Kanji := countKanji(Kanji)
+		sort.Sort(byFreq(Kanji))
+		// get Top 10
+		fmt.Println(Kanji[:10])
+	}
+	close(kanjiChannel)
+	fmt.Println("Fetched all sites")
 	// Kanji := countKanji(res)
 	// sort.Sort(byFreq(Kanji))
 	// // get Top 10
