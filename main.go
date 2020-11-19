@@ -142,7 +142,7 @@ func main() {
 
 	http.HandleFunc("/", twitterSend)
 	fmt.Println("listening on 8080")
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	log.Fatal(http.ListenAndServe(":"+os.Getenv("PORT"), nil))
 
 	////////////TWITTER ABOVE/////////////
 
