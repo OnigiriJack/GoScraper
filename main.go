@@ -162,14 +162,10 @@ func formatCountForTwitter(allKanji []string, url string) string {
 
 func twitterSend(w http.ResponseWriter, r *http.Request) {
 
-	if r.URL.Path != "/" {
+	if r.URL.Path != "/scrape" {
 		http.Error(w, "404 Not Found.", http.StatusNotFound)
 		return
 	}
-	switch r.Method {
-	case "GET":
-		http.ServeFile(w, r, "index.html")
-	case "POST":
 		err := r.ParseForm()
 		if err != nil {
 			fmt.Fprintf(w, "parseform() err: %v", err)
@@ -197,10 +193,6 @@ func twitterSend(w http.ResponseWriter, r *http.Request) {
 		}
 		log.Printf("%+v\n", resp)
 		log.Printf("%+v\n", tweet)
-
-		fmt.Fprintf(w, "URL = %s\n", url)
-	}
-
 }
 
 func main() {
@@ -208,7 +200,10 @@ func main() {
 	if enverr != nil {
 	  log.Fatal("Error loading .env file")
 	}
-	http.HandleFunc("/", twitterSend)
+	fs := http.FileServer(http.Dir("./static"))
+	http.Handle("/", fs)
+	//http.Handle("/", http.StripPrefix(strings.TrimRight(path, "/"), http.FileServer(http.Dir(directory))))
+    http.HandleFunc("/scrape", twitterSend)
 	fmt.Printf( " hosting at %s ", os.Getenv("PORT"))
 	log.Fatal(http.ListenAndServe(":"+os.Getenv("PORT"), nil))
 
