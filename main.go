@@ -5,8 +5,8 @@ import (
 	"log"
 	"net/http"
 	"os"
-	//	"sort"
-	//	"strconv"
+	"sort"
+	"strconv"
 	"strings"
 	"unicode"
 	"github.com/joho/godotenv"
@@ -15,9 +15,74 @@ import (
 	"golang.org/x/net/html"
 )
 
+type kanjiCount struct {
+	Kanji string
+	count int
+}
+
+type byFreq []kanjiCount
+
+func (a byFreq) Len() int {
+	return len(a)
+}
+func (a byFreq) Swap(i, j int) {
+	a[i], a[j] = a[j], a[i]
+}
+func (a byFreq) Less(i, j int) bool {
+	return a[i].count > a[j].count
+}
 // help from https://gist.github.com/dhoss/7532777
 // https://medium.com/@kenanbek/golang-html-tokenizer-extract-text-from-a-web-page-kanan-rahimov-8c75704bf8a3
-func getHtmlFromPage(url string, c chan []string) {
+// func scrapeHtmlFromPageConcurrent(url string, c chan []string) {
+// 	resp, err := http.Get(url)
+// 	if err != nil {
+// 		log.Fatal(err)
+// 	}
+// 	defer resp.Body.Close()
+// 	textTags := []string{
+// 		"a",
+// 		"p", "span", "em", "string", "blockquote", "q", "cite",
+// 		"h1", "h2", "h3", "h4", "h5", "h6", "title",
+// 	}
+// 	tag := ""
+// 	enter := false
+// 	res := make([]string, 0)
+// 	z := html.NewTokenizer(resp.Body)
+
+// 	for {
+// 		tt := z.Next()
+// 		t := z.Token()
+// 		switch {
+// 		case tt == html.ErrorToken:
+// 			// End of document
+// 			res = append(res, url)
+// 			c <- res
+// 			return
+// 		case tt == html.StartTagToken, tt == html.SelfClosingTagToken:
+// 			enter = false
+// 			tag = t.Data
+// 			for _, ttt := range textTags {
+// 				if tag == ttt {
+// 					enter = true
+// 					break
+// 				}
+// 			}
+// 		case tt == html.TextToken:
+// 			if enter {
+// 				data := strings.TrimSpace(t.Data)
+// 				if len(data) > 0 {
+// 					for _, jchar := range data {
+// 						if unicode.Is(unicode.Han, jchar) {
+// 							res = append(res, string(jchar))
+// 						}
+// 					}
+// 				}
+// 			}
+// 		}
+// 	}
+// }
+
+func scrapeHtmlFromPage(url string) []string {
 	resp, err := http.Get(url)
 	if err != nil {
 		log.Fatal(err)
@@ -31,7 +96,6 @@ func getHtmlFromPage(url string, c chan []string) {
 	tag := ""
 	enter := false
 	res := make([]string, 0)
-
 	z := html.NewTokenizer(resp.Body)
 
 	for {
@@ -39,11 +103,7 @@ func getHtmlFromPage(url string, c chan []string) {
 		t := z.Token()
 		switch {
 		case tt == html.ErrorToken:
-			// End of the document, we're done
-			res = append(res, url)
-			c <- res
-			return
-			//return res
+			return res
 		case tt == html.StartTagToken, tt == html.SelfClosingTagToken:
 			enter = false
 			tag = t.Data
@@ -68,10 +128,11 @@ func getHtmlFromPage(url string, c chan []string) {
 	}
 }
 
-type kanjiCount struct {
-	Kanji string
-	count int
-}
+
+
+
+
+
 
 func countKanji(s []string) []kanjiCount {
 	words := s
@@ -87,17 +148,22 @@ func countKanji(s []string) []kanjiCount {
 	return kanjis
 }
 
-type byFreq []kanjiCount
+func formatCountForTwitter(allKanji []string, url string) string {
+	Kanji := countKanji(allKanji)
+	sort.Sort(byFreq(Kanji))
+	// get Top 10
+	ten := Kanji[:10]
+	//fmt.Println(Kanji[:10])
+	var s []string
+	for _, v := range ten {
+		s = append(s, v.Kanji+": "+strconv.Itoa(v.count)+" ")
+	}
+	kanjis := strings.Join(s, ",")
+	kanjis = kanjis + url
+	return kanjis
+}
 
-func (a byFreq) Len() int {
-	return len(a)
-}
-func (a byFreq) Swap(i, j int) {
-	a[i], a[j] = a[j], a[i]
-}
-func (a byFreq) Less(i, j int) bool {
-	return a[i].count > a[j].count
-}
+
 
 func twitterSend(w http.ResponseWriter, r *http.Request) {
 
@@ -114,18 +180,23 @@ func twitterSend(w http.ResponseWriter, r *http.Request) {
 			fmt.Fprintf(w, "parseform() err: %v", err)
 			return
 		}
+		
 		enverr := godotenv.Load()
 		if enverr != nil {
 		  log.Fatal("Error loading .env file")
 		}
 		fmt.Fprintf(w, "Post from website r.PostForm = %v\n", r.PostForm)
 		url := r.FormValue("url")
-		
+
+		allKanji := scrapeHtmlFromPage(url)
+		countForTwitter := formatCountForTwitter(allKanji, url)
+
+	    ///////////TWITTER CONfIGS//////////////
 		config := oauth1.NewConfig(os.Getenv("TWITTER_CONSUMER_KEY"), os.Getenv("TWITTER_CONSUMER_SECRET"))
 	    token := oauth1.NewToken(os.Getenv("TWITTER_ACCESS_TOKEN"), os.Getenv("TWITTER_ACCESS_SECRET"))
 		httpClient := config.Client(oauth1.NoContext, token)
 		client := twitter.NewClient(httpClient)
-		tweet, resp, err := client.Statuses.Update(url, nil)
+		tweet, resp, err := client.Statuses.Update(countForTwitter, nil)
 		if err != nil {
 			log.Println("error making tweet", err)
 		}
@@ -155,7 +226,8 @@ func main() {
 	// 	"https://www.asahi.com",
 	// }
 
-	// kanjiChannel := make(chan []string)
+	
+     // kanjiChannel := make(chan []string)
 
 	// for _, link := range links {
 	// 	fmt.Println("firing go routine for ", link)
@@ -183,7 +255,6 @@ func main() {
 	// 	// log.Printf("%+v\n", tweet)
 
 	// }
-	// close(kanjiChannel)
-	// fmt.Println("Fetched all sites")
+	
 
 }
