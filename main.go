@@ -2,14 +2,14 @@ package main
 
 import (
 	"fmt"
-	"github.com/dghubble/go-twitter/twitter"
-	"github.com/dghubble/oauth1"
+//	"github.com/dghubble/go-twitter/twitter"
+//	"github.com/dghubble/oauth1"
 	"golang.org/x/net/html"
 	"log"
 	"net/http"
-	"os"
-	"sort"
-	"strconv"
+//	"os"
+//	"sort"
+//	"strconv"
 	"strings"
 	"unicode"
 )
@@ -98,67 +98,84 @@ func (a byFreq) Less(i, j int) bool {
 	return a[i].count > a[j].count
 }
 
-func main() {
-	config := oauth1.NewConfig(os.Getenv("TWITTER_CONSUMER_KEY"), os.Getenv("TWITTER_CONSUMER_SECRET"))
-	token := oauth1.NewToken(os.Getenv("TWITTER_ACCESS_TOKEN"), os.Getenv("TWITTER_ACCESS_SECRET"))
-	httpClient := config.Client(oauth1.NoContext, token)
 
-	// Twitter client
-	client := twitter.NewClient(httpClient)
+func twitter(w http.ResponseWriter, r *http.Request) {
 
-	// we can retrieve the user and verify if the credentials
-	// Twitter client
-
-	// Send a Tweet
-	tweet, resp, err := client.Statuses.Update("今日世界 test", nil)
-	if err != nil {
-		log.Println("error making tweet", err)
+	if r.URL.Path != "/" {
+		http.Error(w, "404 Not Found.", http.StatusNotFound)
+		return
 	}
-	log.Printf("%+v\n", resp)
-	log.Printf("%+v\n", tweet)
+	switch r.Method {
+	case "GET":
+		http.ServeFile(w,r, "index.html")
+	}
+    fmt.Fprintf(w, "Hi there, I love %s!", r.URL.Path[1:])
+}
+
+
+func main() {
+
+	http.HandleFunc("/", twitter)
+	fmt.Println("listening on 8080")
+	log.Fatal(http.ListenAndServe(":8080", nil))
+	
+
+	// config := oauth1.NewConfig(os.Getenv("TWITTER_CONSUMER_KEY"), os.Getenv("TWITTER_CONSUMER_SECRET"))
+	// token := oauth1.NewToken(os.Getenv("TWITTER_ACCESS_TOKEN"), os.Getenv("TWITTER_ACCESS_SECRET"))
+	// httpClient := config.Client(oauth1.NoContext, token)
+
+	// // Twitter client
+	// client := twitter.NewClient(httpClient)
+
+	// // we can retrieve the user and verify if the credentials
+	// // Twitter client
+
+	// // Send a Tweet
+	// tweet, resp, err := client.Statuses.Update("今日世界 test", nil)
+	// if err != nil {
+	// 	log.Println("error making tweet", err)
+	// }
+	// log.Printf("%+v\n", resp)
+	// log.Printf("%+v\n", tweet)
 
 	////////////TWITTER ABOVE/////////////
 
-	links := []string{
-		"https://natgeo.nikkeibp.co.jp/?n_cid=nbpnng_ds99999",
-		"https://mainichi.jp",
-		"https://www.nikkei.com",
-		"https://www.asahi.com",
-	}
+	// links := []string{
+	// 	"https://natgeo.nikkeibp.co.jp/?n_cid=nbpnng_ds99999",
+	// 	"https://mainichi.jp",
+	// 	"https://www.nikkei.com",
+	// 	"https://www.asahi.com",
+	// }
 
-	kanjiChannel := make(chan []string)
+	// kanjiChannel := make(chan []string)
 
-	for _, link := range links {
-		fmt.Println("firing go routine for ", link)
-		go getHtmlFromPage(link, kanjiChannel)
-	}
+	// for _, link := range links {
+	// 	fmt.Println("firing go routine for ", link)
+	// 	go getHtmlFromPage(link, kanjiChannel)
+	// }
 
-	for Kanji := range kanjiChannel {
-		urlFromSite := Kanji[len(Kanji)-1]
-		Kanji := countKanji(Kanji)
-		sort.Sort(byFreq(Kanji))
-		// get Top 10
-		fmt.Println(Kanji[:10])
+	// for Kanji := range kanjiChannel {
+	// 	urlFromSite := Kanji[len(Kanji)-1]
+	// 	Kanji := countKanji(Kanji)
+	// 	sort.Sort(byFreq(Kanji))
+	// 	// get Top 10
+	// 	fmt.Println(Kanji[:10])
 
-		ten := Kanji[:10]
-		var s []string
-		for _, v := range ten {
-			s = append(s, v.Kanji+": "+strconv.Itoa(v.count)+" ")
-		}
-		kanjis := strings.Join(s, ",")
-		tweet, resp, err := client.Statuses.Update("今日世界 top TEN KANJI from "+urlFromSite+" "+kanjis+"", nil)
-		if err != nil {
-			log.Println("error making tweet", err)
-		}
-		log.Printf("%+v\n", resp)
-		log.Printf("%+v\n", tweet)
+	// 	ten := Kanji[:10]
+	// 	var s []string
+	// 	for _, v := range ten {
+	// 		s = append(s, v.Kanji+": "+strconv.Itoa(v.count)+" ")
+	// 	}
+	// 	kanjis := strings.Join(s, ",")
+	// 	// tweet, resp, err := client.Statuses.Update("今日世界 top TEN KANJI from "+urlFromSite+" "+kanjis+"", nil)
+	// 	// if err != nil {
+	// 	// 	log.Println("error making tweet", err)
+	// 	// }
+	// 	// log.Printf("%+v\n", resp)
+	// 	// log.Printf("%+v\n", tweet)
 
-	}
-	close(kanjiChannel)
-	fmt.Println("Fetched all sites")
-	// Kanji := countKanji(res)
-	// sort.Sort(byFreq(Kanji))
-	// // get Top 10
-	// fmt.Println(Kanji[:10])
+	// }
+	// close(kanjiChannel)
+	// fmt.Println("Fetched all sites")
 
 }
