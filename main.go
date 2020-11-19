@@ -120,13 +120,12 @@ func twitterSend(w http.ResponseWriter, r *http.Request) {
 		}
 		fmt.Fprintf(w, "Post from website r.PostForm = %v\n", r.PostForm)
 		url := r.FormValue("url")
-		//config := oauth1.NewConfig("37f14Q9geqFPLAzrdNIYVpvWU","lQCBaoCKqYERtn9jPw5z3izjWanLFfFfWZmQa3MVjND5dLbcld")
-		//token := oauth1.NewToken("1322074059400572928-xcmRYBUvIoZL8VxMQMPsSouuYZJySW","sm0cz81cZSgc2phDKQwmfQzxFJgheuYAAwc2Cx3nC")
+		
 		config := oauth1.NewConfig(os.Getenv("TWITTER_CONSUMER_KEY"), os.Getenv("TWITTER_CONSUMER_SECRET"))
 	    token := oauth1.NewToken(os.Getenv("TWITTER_ACCESS_TOKEN"), os.Getenv("TWITTER_ACCESS_SECRET"))
 		httpClient := config.Client(oauth1.NoContext, token)
 		client := twitter.NewClient(httpClient)
-		tweet, resp, err := client.Statuses.Update("今日世界 test", nil)
+		tweet, resp, err := client.Statuses.Update(url, nil)
 		if err != nil {
 			log.Println("error making tweet", err)
 		}
@@ -139,9 +138,12 @@ func twitterSend(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-
+	enverr := godotenv.Load()
+	if enverr != nil {
+	  log.Fatal("Error loading .env file")
+	}
 	http.HandleFunc("/", twitterSend)
-	fmt.Println("listening on 8080")
+	fmt.Printf( " hosting at %s ", os.Getenv("PORT"))
 	log.Fatal(http.ListenAndServe(":"+os.Getenv("PORT"), nil))
 
 	////////////TWITTER ABOVE/////////////
