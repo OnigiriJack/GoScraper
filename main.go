@@ -2,16 +2,17 @@ package main
 
 import (
 	"fmt"
-//	"github.com/dghubble/go-twitter/twitter"
-//	"github.com/dghubble/oauth1"
-	"golang.org/x/net/html"
 	"log"
 	"net/http"
-//	"os"
-//	"sort"
-//	"strconv"
+	"os"
+	//	"sort"
+	//	"strconv"
 	"strings"
 	"unicode"
+	"github.com/joho/godotenv"
+	"github.com/dghubble/go-twitter/twitter"
+	"github.com/dghubble/oauth1"
+	"golang.org/x/net/html"
 )
 
 // help from https://gist.github.com/dhoss/7532777
@@ -98,8 +99,7 @@ func (a byFreq) Less(i, j int) bool {
 	return a[i].count > a[j].count
 }
 
-
-func twitter(w http.ResponseWriter, r *http.Request) {
+func twitterSend(w http.ResponseWriter, r *http.Request) {
 
 	if r.URL.Path != "/" {
 		http.Error(w, "404 Not Found.", http.StatusNotFound)
@@ -107,36 +107,42 @@ func twitter(w http.ResponseWriter, r *http.Request) {
 	}
 	switch r.Method {
 	case "GET":
-		http.ServeFile(w,r, "index.html")
-	}
-    fmt.Fprintf(w, "Hi there, I love %s!", r.URL.Path[1:])
-}
+		http.ServeFile(w, r, "index.html")
+	case "POST":
+		err := r.ParseForm()
+		if err != nil {
+			fmt.Fprintf(w, "parseform() err: %v", err)
+			return
+		}
+		enverr := godotenv.Load()
+		if enverr != nil {
+		  log.Fatal("Error loading .env file")
+		}
+		fmt.Fprintf(w, "Post from website r.PostForm = %v\n", r.PostForm)
+		url := r.FormValue("url")
+		//config := oauth1.NewConfig("37f14Q9geqFPLAzrdNIYVpvWU","lQCBaoCKqYERtn9jPw5z3izjWanLFfFfWZmQa3MVjND5dLbcld")
+		//token := oauth1.NewToken("1322074059400572928-xcmRYBUvIoZL8VxMQMPsSouuYZJySW","sm0cz81cZSgc2phDKQwmfQzxFJgheuYAAwc2Cx3nC")
+		config := oauth1.NewConfig(os.Getenv("TWITTER_CONSUMER_KEY"), os.Getenv("TWITTER_CONSUMER_SECRET"))
+	    token := oauth1.NewToken(os.Getenv("TWITTER_ACCESS_TOKEN"), os.Getenv("TWITTER_ACCESS_SECRET"))
+		httpClient := config.Client(oauth1.NoContext, token)
+		client := twitter.NewClient(httpClient)
+		tweet, resp, err := client.Statuses.Update("今日世界 test", nil)
+		if err != nil {
+			log.Println("error making tweet", err)
+		}
+		log.Printf("%+v\n", resp)
+		log.Printf("%+v\n", tweet)
 
+		fmt.Fprintf(w, "URL = %s\n", url)
+	}
+
+}
 
 func main() {
 
-	http.HandleFunc("/", twitter)
+	http.HandleFunc("/", twitterSend)
 	fmt.Println("listening on 8080")
 	log.Fatal(http.ListenAndServe(":8080", nil))
-	
-
-	// config := oauth1.NewConfig(os.Getenv("TWITTER_CONSUMER_KEY"), os.Getenv("TWITTER_CONSUMER_SECRET"))
-	// token := oauth1.NewToken(os.Getenv("TWITTER_ACCESS_TOKEN"), os.Getenv("TWITTER_ACCESS_SECRET"))
-	// httpClient := config.Client(oauth1.NoContext, token)
-
-	// // Twitter client
-	// client := twitter.NewClient(httpClient)
-
-	// // we can retrieve the user and verify if the credentials
-	// // Twitter client
-
-	// // Send a Tweet
-	// tweet, resp, err := client.Statuses.Update("今日世界 test", nil)
-	// if err != nil {
-	// 	log.Println("error making tweet", err)
-	// }
-	// log.Printf("%+v\n", resp)
-	// log.Printf("%+v\n", tweet)
 
 	////////////TWITTER ABOVE/////////////
 
