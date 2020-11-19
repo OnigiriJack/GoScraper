@@ -130,10 +130,6 @@ func scrapeHtmlFromPage(url string) []string {
 
 
 
-
-
-
-
 func countKanji(s []string) []kanjiCount {
 	words := s
 	wordCount := make(map[string]int)
@@ -162,7 +158,6 @@ func formatCountForTwitter(allKanji []string, url string) string {
 	kanjis = kanjis + url
 	return kanjis
 }
-
 
 
 func twitterSend(w http.ResponseWriter, r *http.Request) {
