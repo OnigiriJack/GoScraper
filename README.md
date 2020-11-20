@@ -31,7 +31,7 @@ go build
 
 Run Program
 ```
-go run main.go
+go run main.go utils.go 
 ```
 
 
