@@ -9,9 +9,10 @@ import (
 	"strconv"
 	"strings"
 	"unicode"
-	"github.com/joho/godotenv"
+
 	"github.com/dghubble/go-twitter/twitter"
 	"github.com/dghubble/oauth1"
+	"github.com/joho/godotenv"
 	"golang.org/x/net/html"
 )
 
@@ -31,6 +32,7 @@ func (a byFreq) Swap(i, j int) {
 func (a byFreq) Less(i, j int) bool {
 	return a[i].count > a[j].count
 }
+
 // help from https://gist.github.com/dhoss/7532777
 // https://medium.com/@kenanbek/golang-html-tokenizer-extract-text-from-a-web-page-kanan-rahimov-8c75704bf8a3
 // func scrapeHtmlFromPageConcurrent(url string, c chan []string) {
@@ -128,8 +130,6 @@ func scrapeHtmlFromPage(url string) []string {
 	}
 }
 
-
-
 func countKanji(s []string) []kanjiCount {
 	words := s
 	wordCount := make(map[string]int)
@@ -159,52 +159,54 @@ func formatCountForTwitter(allKanji []string, url string) string {
 	return kanjis
 }
 
-
 func twitterSend(w http.ResponseWriter, r *http.Request) {
 
 	if r.URL.Path != "/scrape" {
 		http.Error(w, "404 Not Found.", http.StatusNotFound)
 		return
 	}
-		err := r.ParseForm()
-		if err != nil {
-			fmt.Fprintf(w, "parseform() err: %v", err)
-			return
-		}
-		
-		enverr := godotenv.Load()
-		if enverr != nil {
-		  log.Fatal("Error loading .env file")
-		}
-		fmt.Fprintf(w, "Post from website r.PostForm = %v\n", r.PostForm)
-		url := r.FormValue("url")
+	err := r.ParseForm()
+	if err != nil {
+		fmt.Fprintf(w, "parseform() err: %v", err)
+		return
+	}
 
-		allKanji := scrapeHtmlFromPage(url)
-		countForTwitter := formatCountForTwitter(allKanji, url)
+	enverr := godotenv.Load()
+	if enverr != nil {
+		log.Fatal("Error loading .env file")
+	}
 
-	    ///////////TWITTER CONfIGS//////////////
-		config := oauth1.NewConfig(os.Getenv("TWITTER_CONSUMER_KEY"), os.Getenv("TWITTER_CONSUMER_SECRET"))
-	    token := oauth1.NewToken(os.Getenv("TWITTER_ACCESS_TOKEN"), os.Getenv("TWITTER_ACCESS_SECRET"))
-		httpClient := config.Client(oauth1.NoContext, token)
-		client := twitter.NewClient(httpClient)
-		tweet, resp, err := client.Statuses.Update(countForTwitter, nil)
-		if err != nil {
-			log.Println("error making tweet", err)
-		}
-		log.Printf("%+v\n", resp)
-		log.Printf("%+v\n", tweet)
+	fmt.Fprintf(w, "Post from website r.PostForm = %v\n", r.PostForm)
+	url := r.FormValue("url")
+
+	allKanji := ScrapeHtmlFromPage(url)
+	countForTwitter := formatCountForTwitter(allKanji, url)
+
+	///////////TWITTER CONfIGS//////////////
+	config := oauth1.NewConfig(os.Getenv("TWITTER_CONSUMER_KEY"), os.Getenv("TWITTER_CONSUMER_SECRET"))
+	token := oauth1.NewToken(os.Getenv("TWITTER_ACCESS_TOKEN"), os.Getenv("TWITTER_ACCESS_SECRET"))
+	httpClient := config.Client(oauth1.NoContext, token)
+	client := twitter.NewClient(httpClient)
+	tweet, resp, err := client.Statuses.Update(countForTwitter, nil)
+	if err != nil {
+		log.Println("error making tweet", err)
+	}
+	log.Printf("%+v\n", resp)
+	log.Printf("%+v\n", tweet)
+	http.Redirect(w, r, "/", 301)
 }
 
 func main() {
+	Test()
 	enverr := godotenv.Load()
 	if enverr != nil {
-	  log.Fatal("Error loading .env file")
+		log.Fatal("Error loading .env file")
 	}
 	fs := http.FileServer(http.Dir("./static"))
 	http.Handle("/", fs)
-	//http.Handle("/", http.StripPrefix(strings.TrimRight(path, "/"), http.FileServer(http.Dir(directory))))
-    http.HandleFunc("/scrape", twitterSend)
-	fmt.Printf( " hosting at %s ", os.Getenv("PORT"))
+
+	http.HandleFunc("/scrape", twitterSend)
+	fmt.Printf(" hosting at %s ", os.Getenv("PORT"))
 	log.Fatal(http.ListenAndServe(":"+os.Getenv("PORT"), nil))
 
 	////////////TWITTER ABOVE/////////////
@@ -216,8 +218,7 @@ func main() {
 	// 	"https://www.asahi.com",
 	// }
 
-	
-     // kanjiChannel := make(chan []string)
+	// kanjiChannel := make(chan []string)
 
 	// for _, link := range links {
 	// 	fmt.Println("firing go routine for ", link)
@@ -245,6 +246,5 @@ func main() {
 	// 	// log.Printf("%+v\n", tweet)
 
 	// }
-	
 
 }
