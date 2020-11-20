@@ -12,7 +12,7 @@ Building this application in Go allows one to utilize the power of concurrency t
 **Features**
 - Scrape a webapage and rank the Kanji on the site
 - Post the results on twitter
-- Scrape many sites at once with (Goroutines)[https://blog.golang.org/context]
+- Scrape many sites at once with [Goroutines](https://blog.golang.org/context)
 
 ## Tech
 Golang, [go-twitter](https://github.com/dghubble/go-twitter), HTML, [TwitterAPI](https://developer.twitter.com/en), Heroku
