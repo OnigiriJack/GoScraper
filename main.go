@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"html/template"
 	"log"
 	"net/http"
 	"os"
@@ -17,6 +18,11 @@ import (
 type kanjiCount struct {
 	Kanji string
 	count int
+}
+
+type kanjiData struct {
+	url    string
+	kanjis kanjiCount
 }
 
 type byFreq []kanjiCount
@@ -48,9 +54,7 @@ func countKanji(s []string) []kanjiCount {
 func formatCountForTwitter(allKanji []string, url string) string {
 	Kanji := countKanji(allKanji)
 	sort.Sort(byFreq(Kanji))
-	// get Top 10
 	ten := Kanji[:10]
-	//fmt.Println(Kanji[:10])
 	var s []string
 	for _, v := range ten {
 		s = append(s, v.Kanji+": "+strconv.Itoa(v.count)+" ")
@@ -97,6 +101,35 @@ func twitterSend(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/", 301)
 }
 
+func goRoutine(w http.ResponseWriter, r *http.Request) {
+
+	tmplt := template.New("goroutine.html")       // create a new template with some name
+	tmplt, _ = tmplt.ParseFiles("goroutine.html") // parse some content and generate a template, which is an internal representation
+
+	links := []string{
+		"https://natgeo.nikkeibp.co.jp/?n_cid=nbpnng_ds99999",
+		"https://mainichi.jp",
+		"https://www.nikkei.com",
+		"https://www.asahi.com",
+	}
+
+	kanjiChannel := make(chan []string)
+
+	for _, link := range links {
+		fmt.Println("firing go routine for ", link)
+		go ScrapeHtmlFromPageConcurrent(link, kanjiChannel)
+	}
+	result := make([]kanjiData, 0)
+	for Kanji := range kanjiChannel {
+		urlFromSite := Kanji[len(Kanji)-1]
+		Kanji := countKanji(Kanji)
+		sort.Sort(byFreq(Kanji))
+		result = append(result, kanjiData{urlFromSite, Kanji})
+		fmt.Println(Kanji[:10])
+	}
+	tmplt.Execute(w, result)
+}
+
 func main() {
 
 	enverr := godotenv.Load()
@@ -106,6 +139,7 @@ func main() {
 	fs := http.FileServer(http.Dir("./static"))
 	http.Handle("/", fs)
 
+	http.HandleFunc("/go", goRoutine)
 	http.HandleFunc("/scrape", twitterSend)
 	fmt.Printf(" hosting at %s ", os.Getenv("PORT"))
 	log.Fatal(http.ListenAndServe(":"+os.Getenv("PORT"), nil))
